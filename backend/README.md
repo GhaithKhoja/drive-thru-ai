@@ -18,4 +18,9 @@
 3. Run the FastAPI app with Uvicorn:
    ```bash
    uvicorn main:app --reload
+   ```
+
+4. Run the test suite:
+   ```bash
+   python3 -m unittest test_ai.py
    ``` 
