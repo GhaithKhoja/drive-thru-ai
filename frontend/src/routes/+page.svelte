@@ -8,39 +8,62 @@ let counts = {
   drinks: 0
 };
 
-let orderHistory: { burgers: number; fries: number; drinks: number; message: string; }[] = [];
-const HISTORY_KEY = 'OrderHistory';
-
-onMount(() => {
-  const history = localStorage.getItem(HISTORY_KEY);
-  if (history) {
-    orderHistory = JSON.parse(history);
-    if (orderHistory.length > 0) {
-      // Set counts to the total of all orders
-      counts = orderHistory.reduce(
-        (acc, order) => ({
-          burgers: acc.burgers + order.burgers,
-          fries: acc.fries + order.fries,
-          drinks: acc.drinks + order.drinks
-        }),
-        { burgers: 0, fries: 0, drinks: 0 }
-      );
-    }
-  }
-});
-
-function updateHistory() {
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(orderHistory));
-}
+let orderHistory: { id: number; burgers: number; fries: number; drinks: number; message: string; }[] = [];
+let nextOrderId = 1;
 
 let chatMessage = '';
 
-function runMessage() {
-  // You can handle the chat message here (e.g., send to backend, show in UI, etc.)
-  alert(`Message sent: ${chatMessage}`);
+async function runMessage() {
+  if (!chatMessage.trim()) return;
 
-  // update history
-  updateHistory();
+  try {
+    const response = await fetch('http://127.0.0.1:8000/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: chatMessage })
+    });
+    const json = await response.json();
+    const data = json.response;
+
+    // Handle deletes first
+    if (data.deleteOrder && Array.isArray(data.deleteOrder.order_ids)) {
+      // Now treat order_ids as actual order ids
+      const deleteIds = data.deleteOrder.order_ids;
+      for (const id of deleteIds) {
+        const index = orderHistory.findIndex(order => order.id === id);
+        if (index !== -1) {
+          counts.burgers -= orderHistory[index].burgers;
+          counts.fries -= orderHistory[index].fries;
+          counts.drinks -= orderHistory[index].drinks;
+          orderHistory = orderHistory.filter((_, i) => i !== index);
+        }
+      }
+    }
+
+    // Handle addOrder
+    if (data.addOrder) {
+      const { burger_count, fries_count, drink_count } = data.addOrder;
+      const newOrder = {
+        id: nextOrderId++,
+        burgers: burger_count,
+        fries: fries_count,
+        drinks: drink_count,
+        message: chatMessage
+      };
+      orderHistory = [...orderHistory, newOrder];
+      counts.burgers += burger_count;
+      counts.fries += fries_count;
+      counts.drinks += drink_count;
+    }
+
+    if (!data.addOrder && !data.deleteOrder) {
+      alert('Unknown response from backend.');
+    }
+  } catch (err) {
+    alert('Failed to contact backend.');
+    console.error(err);
+  }
+  chatMessage = '';
 }
 </script>
 
@@ -75,17 +98,16 @@ function runMessage() {
       {#if orderHistory.length === 0}
         <div class="text-gray-500">No orders yet.</div>
       {:else}
-        <div class="w-full max-w-2xl">
-          <div class="grid grid-cols-5 gap-4 font-semibold border-b pb-2 mb-2">
+        <div class="w-full max-w-2xl text-center">
+          <div class="grid grid-cols-4 gap-4 font-semibold border-b pb-2 mb-2">
             <div>Order #</div>
             <div>Burgers</div>
             <div>Fries</div>
             <div>Drinks</div>
-            <div>Message</div>
           </div>
-          {#each orderHistory as order, i}
-            <div class="grid grid-cols-5 gap-4 py-2 border-b items-center">
-              <div>{i + 1}</div>
+          {#each orderHistory as order}
+            <div class="grid grid-cols-4 gap-4 py-2 border-b items-center">
+              <div>{order.id}</div>
               <div>{order.burgers}</div>
               <div>{order.fries}</div>
               <div>{order.drinks}</div>
