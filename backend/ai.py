@@ -46,7 +46,6 @@ class AI:
         output = {}
         
         for tool_call in result.tool_calls:
-            print(tool_call)
             tool_name = tool_call['name']
             tool_args = tool_call['args']
             output[tool_name] = tool_args
