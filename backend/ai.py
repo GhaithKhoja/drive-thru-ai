@@ -46,8 +46,20 @@ class AI:
         output = {}
         
         for tool_call in result.tool_calls:
+            
+            # Get the tool name and args
             tool_name = tool_call['name']
             tool_args = tool_call['args']
+            
+            # Special case for addOrder
+            if tool_name == "addOrder":
+                # Ensure all counts are present and default to 0 if missing
+                tool_args = {
+                    "burger_count": tool_args.get("burger_count", 0),
+                    "fries_count": tool_args.get("fries_count", 0),
+                    "drink_count": tool_args.get("drink_count", 0)
+                }
+                
             output[tool_name] = tool_args
         
         return output
